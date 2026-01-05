@@ -3,337 +3,689 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quản lý Trang Thiết Bị Y Tế</title>
+    <title>Hệ thống Quản lý TTBYT</title>
+    <!-- Bootstrap 5.3 & Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
-    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <!-- Chart.js for better Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FullCalendar -->
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
     
     <style>
-        :root { --primary-color: #0d6efd; --bg-color: #f4f6f9; }
-        body { background-color: var(--bg-color); font-family: 'Segoe UI', sans-serif; font-size: 14px; }
-        .nav-pills .nav-link.active { background-color: var(--primary-color); color: white; box-shadow: 0 4px 6px rgba(13, 110, 253, 0.3); }
-        .nav-pills .nav-link { background: white; margin: 0 5px; color: #555; font-weight: 600; }
-        .card-custom { border: none; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border-radius: 12px; background: white; margin-bottom: 20px; }
-        .badge-status { font-size: 0.75rem; padding: 4px 8px; border-radius: 6px; }
-        .bg-ok { background-color: #198754; color: white; }
-        .bg-warning-custom { background-color: #ffc107; color: #333; }
-        .bg-expired { background-color: #dc3545; color: white; }
-        .table-responsive { max-height: 70vh; overflow-y: auto; }
-        th { position: sticky; top: 0; background: white; z-index: 10; }
-        .cat-badge { font-size: 0.7rem; font-weight: bold; padding: 2px 6px; border-radius: 4px; background: #e9ecef; color: #495057; display: inline-block; margin-bottom: 4px; }
-        /* Loading Overlay */
-        #loading-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(255,255,255,0.8); z-index: 9999; display: flex; justify-content: center; align-items: center; flex-direction: column; }
+        :root {
+            --sidebar-width: 260px;
+            --primary-bg: #f8f9fa;
+            --primary-color: #0e7490; /* Cyan-700 */
+            --accent-color: #06b6d4;
+        }
+
+        body { font-family: 'Inter', 'Segoe UI', sans-serif; background-color: #f0f2f5; font-size: 0.9rem; overflow-x: hidden; }
+        
+        /* Layout Structure */
+        #wrapper { display: flex; width: 100%; align-items: stretch; }
+        #sidebar { min-width: var(--sidebar-width); max-width: var(--sidebar-width); background: #fff; color: #333; min-height: 100vh; border-right: 1px solid #e0e0e0; transition: all 0.3s; position: fixed; z-index: 1000; }
+        #content { width: 100%; margin-left: var(--sidebar-width); min-height: 100vh; transition: all 0.3s; }
+        
+        /* Sidebar Elements */
+        .sidebar-header { padding: 20px; background: var(--primary-color); color: white; }
+        .sidebar-menu { padding: 15px 0; list-style: none; }
+        .sidebar-menu li a { padding: 12px 25px; display: flex; align-items: center; font-weight: 500; color: #555; text-decoration: none; border-left: 4px solid transparent; transition: 0.2s; }
+        .sidebar-menu li a:hover { background: #f1f5f9; color: var(--primary-color); }
+        .sidebar-menu li a.active { background: #e0f2fe; color: var(--primary-color); border-left-color: var(--primary-color); }
+        .sidebar-menu i { margin-right: 10px; font-size: 1.1rem; }
+
+        /* Card & Stats */
+        .stat-card { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); border: 1px solid #eee; height: 100%; transition: transform 0.2s; }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.08); }
+        .stat-icon { width: 45px; height: 45px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; margin-bottom: 15px; }
+        
+        /* Table Styles */
+        .table-custom { background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .table-custom thead { background: #f8fafc; color: #64748b; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        .table-custom th, .table-custom td { padding: 12px 20px; vertical-align: middle; border-bottom: 1px solid #f1f5f9; }
+        
+        /* Status Badges */
+        .badge-status { padding: 5px 10px; border-radius: 20px; font-weight: 600; font-size: 0.75rem; display: inline-flex; align-items: center; }
+        .badge-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; margin-right: 6px; }
+        
+        .st-ok { background: #dcfce7; color: #166534; } .st-ok::before { background: #166534; }
+        .st-warn { background: #fef9c3; color: #854d0e; } .st-warn::before { background: #854d0e; }
+        .st-err { background: #fee2e2; color: #991b1b; } .st-err::before { background: #991b1b; }
+        .st-fix { background: #e0f2fe; color: #075985; } .st-fix::before { background: #075985; } /* Đang sửa */
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            #sidebar { margin-left: calc(-1 * var(--sidebar-width)); }
+            #sidebar.active { margin-left: 0; }
+            #content { margin-left: 0; }
+        }
+        
+        /* Modal Profile */
+        .profile-header { background: linear-gradient(135deg, var(--primary-color), var(--accent-color)); color: white; padding: 20px; border-radius: 10px 10px 0 0; }
+        .timeline { border-left: 2px solid #e0e0e0; margin-left: 10px; padding-left: 20px; position: relative; }
+        .timeline-item { margin-bottom: 20px; position: relative; }
+        .timeline-item::before { content: ''; width: 12px; height: 12px; background: white; border: 2px solid var(--primary-color); border-radius: 50%; position: absolute; left: -27px; top: 0; }
+        
+        #loading { position: fixed; inset: 0; background: rgba(255,255,255,0.9); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
     </style>
 </head>
 <body>
 
-<div id="loading-overlay">
-    <div class="spinner-border text-primary" role="status"></div>
-    <div class="mt-2 fw-bold text-primary">Đang tải dữ liệu...</div>
+<!-- Loading Screen -->
+<div id="loading">
+    <div class="spinner-grow text-primary mb-2" role="status"></div>
+    <h6 class="text-primary fw-bold">Đang đồng bộ dữ liệu...</h6>
+    <small class="text-muted">Vui lòng đợi giây lát</small>
 </div>
 
-<div class="container-fluid px-3 py-3" style="max-width: 1400px; margin: 0 auto;">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div class="d-flex align-items-center">
-            <div class="bg-primary text-white p-2 rounded-3 me-3"><i class="bi bi-hospital fs-4"></i></div>
-            <div>
-                <h5 class="fw-bold m-0 text-primary">QUẢN LÝ THIẾT BỊ & KIỂM ĐỊNH</h5>
-                <small class="text-muted">Hệ thống đồng bộ Google Sheet</small>
-            </div>
+<div id="wrapper">
+    <!-- SIDEBAR -->
+    <nav id="sidebar">
+        <div class="sidebar-header">
+            <h5 class="mb-0 fw-bold"><i class="bi bi-shield-plus"></i> MEQ Manager</h5>
+            <small class="opacity-75">Quản lý TB Y Tế</small>
         </div>
-        <button class="btn btn-outline-primary btn-sm" onclick="fetchData()">🔄 Làm mới</button>
-    </div>
+        <ul class="sidebar-menu">
+            <li><a href="#" class="active" onclick="switchTab('dashboard')"><i class="bi bi-grid-1x2"></i> Tổng quan</a></li>
+            <li><a href="#" onclick="switchTab('inventory')"><i class="bi bi-box-seam"></i> Danh sách Thiết bị</a></li>
+            <li><a href="#" onclick="switchTab('maintenance')"><i class="bi bi-tools"></i> Bảo trì & Sửa chữa <span class="badge bg-danger ms-auto rounded-pill" id="badge-repair-count" style="display:none">0</span></a></li>
+            <li><a href="#" onclick="switchTab('calendar')"><i class="bi bi-calendar-event"></i> Lịch Kiểm định</a></li>
+        </ul>
+        <div class="mt-auto p-3 text-center border-top">
+             <button class="btn btn-sm btn-outline-secondary w-100" onclick="fetchData()"><i class="bi bi-arrow-clockwise"></i> Đồng bộ lại</button>
+        </div>
+    </nav>
 
-    <ul class="nav nav-pills nav-fill mb-3" id="pills-tab" role="tablist">
-        <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#pills-dashboard" onclick="renderAllCharts()">📊 Tổng Quan</button></li>
-        <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#pills-list">📦 Danh Sách Thiết Bị</button></li>
-        <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#pills-repair">🛠️ Báo Hỏng & Sửa Chữa</button></li>
-    </ul>
+    <!-- CONTENT -->
+    <div id="content" class="p-4">
+        <!-- Topbar Mobile Toggle -->
+        <button class="btn btn-primary d-md-none mb-3" onclick="document.getElementById('sidebar').classList.toggle('active')"><i class="bi bi-list"></i></button>
 
-    <div class="tab-content">
-        <!-- TAB 1: DASHBOARD -->
-        <div class="tab-pane fade show active" id="pills-dashboard">
+        <!-- VIEW: DASHBOARD -->
+        <div id="view-dashboard" class="view-section">
+            <h4 class="fw-bold mb-4 text-secondary">Tổng quan Hoạt động</h4>
+            
             <div class="row g-3 mb-4">
-                <div class="col-md-3"><div class="card card-custom p-3 border-start border-4 border-primary"><h3><span id="c-total">0</span></h3><small>TỔNG THIẾT BỊ</small></div></div>
-                <div class="col-md-3"><div class="card card-custom p-3 border-start border-4 border-danger"><h3><span id="c-exp" class="text-danger">0</span></h3><small>HẾT HẠN KĐ</small></div></div>
-                <div class="col-md-3"><div class="card card-custom p-3 border-start border-4 border-warning"><h3><span id="c-warn" class="text-warning">0</span></h3><small>SẮP HẾT HẠN</small></div></div>
-                <div class="col-md-3"><div class="card card-custom p-3 border-start border-4 border-success"><h3><span id="c-ok" class="text-success">0</span></h3><small>ĐỦ ĐIỀU KIỆN</small></div></div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-icon bg-primary bg-opacity-10 text-primary"><i class="bi bi-hdd-stack"></i></div>
+                        <h3 class="fw-bold mb-0" id="stat-total">0</h3>
+                        <small class="text-muted">Tổng thiết bị</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-icon bg-danger bg-opacity-10 text-danger"><i class="bi bi-exclamation-triangle"></i></div>
+                        <h3 class="fw-bold mb-0" id="stat-expired">0</h3>
+                        <small class="text-muted">Hết hạn kiểm định</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-icon bg-warning bg-opacity-10 text-warning"><i class="bi bi-wrench-adjustable"></i></div>
+                        <h3 class="fw-bold mb-0" id="stat-repairing">0</h3>
+                        <small class="text-muted">Đang báo hỏng/sửa</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-icon bg-success bg-opacity-10 text-success"><i class="bi bi-check-circle"></i></div>
+                        <h3 class="fw-bold mb-0" id="stat-ready">0</h3>
+                        <small class="text-muted">Sẵn sàng sử dụng</small>
+                    </div>
+                </div>
             </div>
+
             <div class="row g-4">
-                <div class="col-lg-8"><div class="card card-custom p-3"><h6 class="fw-bold">📅 Lịch Kiểm Định & Bảo Dưỡng</h6><div id="calendar"></div></div></div>
-                <div class="col-lg-4">
-                    <div class="card card-custom p-3 mb-3"><div id="chart_cat" style="height:250px;"></div></div>
-                    <div class="card card-custom p-3"><div id="chart_status" style="height:250px;"></div></div>
+                <div class="col-md-8">
+                    <div class="card border-0 shadow-sm p-3 h-100">
+                        <h6 class="fw-bold text-secondary mb-3">Phân bố Tài sản theo Khoa</h6>
+                        <canvas id="chartDept"></canvas>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border-0 shadow-sm p-3 h-100">
+                        <h6 class="fw-bold text-secondary mb-3">Tỷ lệ Trạng thái</h6>
+                        <canvas id="chartStatus"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- TAB 2: INVENTORY -->
-        <div class="tab-pane fade" id="pills-list">
-            <div class="card card-custom p-3">
-                <div class="row g-2 mb-3">
-                    <div class="col-md-3"><select id="fCat" class="form-select form-select-sm" onchange="renderTable()"><option value="">Tất cả nhóm</option></select></div>
-                    <div class="col-md-3"><select id="fDept" class="form-select form-select-sm" onchange="renderTable()"><option value="">Tất cả khoa</option></select></div>
-                    <div class="col-md-3"><select id="fStatus" class="form-select form-select-sm" onchange="renderTable()"><option value="">Tất cả trạng thái</option><option value="expired">Cảnh báo & Hết hạn</option></select></div>
-                    <div class="col-md-3"><input type="text" id="fSearch" class="form-control form-control-sm" placeholder="Tìm kiếm..." onkeyup="renderTable()"></div>
+        <!-- VIEW: INVENTORY -->
+        <div id="view-inventory" class="view-section d-none">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="fw-bold text-secondary">Danh sách Thiết bị</h4>
+                <div class="d-flex gap-2">
+                    <input type="text" id="search-input" class="form-control" placeholder="Tìm tên, model, seri..." onkeyup="filterTable()">
+                    <select id="filter-dept" class="form-select w-auto" onchange="filterTable()"><option value="">Tất cả khoa</option></select>
                 </div>
+            </div>
+
+            <div class="table-custom">
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle table-sm">
-                        <thead class="table-light"><tr><th>Tên Thiết Bị / Model</th><th>Khoa</th><th>Hạn KĐ</th><th>Người PT</th><th>Tác vụ</th></tr></thead>
-                        <tbody id="tbInventory"></tbody>
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Thiết bị</th>
+                                <th>Khoa / Phòng</th>
+                                <th>Model / Serial</th>
+                                <th>Trạng thái</th>
+                                <th>Người PT</th>
+                                <th class="text-end">Hành động</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventory-body">
+                            <!-- JS render -->
+                        </tbody>
                     </table>
                 </div>
             </div>
         </div>
 
-        <!-- TAB 3: REPAIR -->
-        <div class="tab-pane fade" id="pills-repair">
+        <!-- VIEW: MAINTENANCE -->
+        <div id="view-maintenance" class="view-section d-none">
             <div class="row g-4">
                 <div class="col-md-4">
-                    <div class="card card-custom p-4 bg-light border-danger border-top border-4">
-                        <h5 class="text-danger fw-bold mb-3">Gửi Yêu Cầu Mới</h5>
-                        <form id="formReport">
-                            <div class="mb-3"><label class="small fw-bold">Thiết bị</label><select id="rptDevice" class="form-select" required></select></div>
-                            <div class="mb-3"><label class="small fw-bold">Loại</label><select id="rptType" class="form-select"><option>Sửa chữa (Hỏng)</option><option>Kiểm định lại</option><option>Bảo dưỡng định kỳ</option></select></div>
-                            <div class="mb-3"><label class="small fw-bold">Mô tả</label><textarea id="rptContent" class="form-control" required></textarea></div>
-                            <div class="mb-3"><label class="small fw-bold">Người báo</label><input id="rptBy" class="form-control" required></div>
-                            <button type="submit" class="btn btn-danger w-100 fw-bold">GỬI YÊU CẦU</button>
+                    <div class="card border-0 shadow-sm p-4 h-100">
+                        <h5 class="fw-bold text-primary mb-3"><i class="bi bi-pencil-square"></i> Tạo Phiếu Yêu Cầu</h5>
+                        <form id="form-report">
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-muted">Thiết bị gặp sự cố</label>
+                                <select id="rpt-device" class="form-select" required></select>
+                                <div class="form-text">Chỉ hiện thiết bị đang hoạt động</div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-muted">Loại yêu cầu</label>
+                                <select id="rpt-type" class="form-select">
+                                    <option value="Sửa chữa">🛠️ Báo hỏng (Sửa chữa)</option>
+                                    <option value="Kiểm định">📅 Xin lịch Kiểm định lại</option>
+                                    <option value="Bảo dưỡng">🧽 Bảo dưỡng định kỳ</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-muted">Mô tả chi tiết</label>
+                                <textarea id="rpt-content" class="form-control" rows="3" placeholder="Mô tả lỗi, hiện tượng..." required></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-bold text-muted">Người báo</label>
+                                <input id="rpt-by" type="text" class="form-control" required placeholder="Tên cán bộ...">
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100 fw-bold">GỬI YÊU CẦU</button>
                         </form>
                     </div>
                 </div>
                 <div class="col-md-8">
-                    <div class="card card-custom p-4">
-                        <h5 class="fw-bold">Lịch Sử Yêu Cầu</h5>
+                    <div class="card border-0 shadow-sm p-4 h-100">
+                        <div class="d-flex justify-content-between mb-3">
+                            <h5 class="fw-bold text-secondary">Theo dõi Tiến độ Sửa chữa</h5>
+                            <span class="badge bg-light text-dark border" id="ticket-count">0 phiếu</span>
+                        </div>
                         <div class="table-responsive">
-                            <table class="table table-striped table-sm"><thead class="table-primary"><tr><th>Ngày</th><th>Loại</th><th>Thiết bị</th><th>Nội dung</th><th>Trạng thái</th></tr></thead><tbody id="tbRepair"></tbody></table>
+                            <table class="table table-sm align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Ngày</th>
+                                        <th>Thiết bị</th>
+                                        <th>Sự cố</th>
+                                        <th>Trạng thái</th>
+                                        <th>Người báo</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="repair-body"></tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- VIEW: CALENDAR -->
+        <div id="view-calendar" class="view-section d-none">
+            <div class="card border-0 shadow-sm p-3">
+                <div id="calendar"></div>
+            </div>
+        </div>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<!-- DEVICE DETAILS MODAL -->
+<div class="modal fade" id="modalDevice" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content border-0 overflow-hidden rounded-3">
+            <div class="profile-header">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="fw-bold mb-1" id="m-name">Tên Thiết Bị</h4>
+                        <span class="badge bg-white text-primary" id="m-model">Model XYZ</span>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+            </div>
+            <div class="modal-body p-4">
+                <div class="row g-4">
+                    <div class="col-md-6 border-end">
+                        <h6 class="fw-bold text-secondary mb-3">Thông tin chi tiết</h6>
+                        <ul class="list-unstyled">
+                            <li class="mb-2"><strong>Khoa/Phòng:</strong> <span id="m-dept">--</span></li>
+                            <li class="mb-2"><strong>Serial:</strong> <span id="m-serial">--</span></li>
+                            <li class="mb-2"><strong>Người quản lý:</strong> <span id="m-resp">--</span></li>
+                            <li class="mb-2"><strong>Hạn kiểm định:</strong> <span id="m-expiry" class="badge bg-secondary">--</span></li>
+                        </ul>
+                        <div class="mt-4 p-3 bg-light rounded text-center">
+                            <small class="d-block text-muted mb-2">QR Định danh</small>
+                            <canvas id="qr-canvas"></canvas>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="fw-bold text-secondary mb-3">Lịch sử Bảo trì & Sự cố</h6>
+                        <div class="timeline" id="m-timeline">
+                            <!-- Timeline items generated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button class="btn btn-outline-danger btn-sm" onclick="reportFromModal()">⚠️ Báo hỏng thiết bị này</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- QR Lib -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+
 <script>
-    // --- CẤU HÌNH LIÊN KẾT ---
-    // 1. Deploy Google Script -> Copy URL -> Dán vào dưới đây
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyOC-anS4AVj1dPDhSidyPaIxI4i-lsWsf4L1K9uSbaWpXBcGW0UiMS7CGWcQH2iP56/exec";
+    // --- CONFIGURATION ---
+    // ⚠️ QUAN TRỌNG: Thay link Google App Script của bạn vào đây
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyDIAkOgafhcbbfqZKVblr4_I_F31DaAlDuDZZnuV-Uj1fyW-vwL7z9vxHBbyd0Rgbb/exec"; 
 
-    let globalDevices = [];
-    let globalRepairs = [];
+    // Global State
+    let devices = [];
+    let repairs = [];
+    let calendarInstance = null;
+    let charts = {};
 
+    // --- INITIALIZATION ---
     document.addEventListener('DOMContentLoaded', () => {
-        google.charts.load('current', {'packages':['corechart']});
+        if(SCRIPT_URL.includes("THAY_LINK")) {
+            alert("Vui lòng cấu hình SCRIPT_URL trong code HTML!");
+            document.getElementById('loading').innerHTML = '<div class="text-danger">Chưa cấu hình liên kết Backend!</div>';
+            return;
+        }
         fetchData();
         
-        document.getElementById('formReport').addEventListener('submit', handleReportSubmit);
+        // Form Submit
+        document.getElementById('form-report').addEventListener('submit', handleReportSubmit);
     });
 
-    function fetchData() {
-        document.getElementById('loading-overlay').style.display = 'flex';
-        
-        // Gọi song song 2 API: Lấy thiết bị và Lấy lịch sử sửa chữa
-        Promise.all([
-            fetch(`${SCRIPT_URL}?action=read_devices`).then(r => r.json()),
-            fetch(`${SCRIPT_URL}?action=read_repairs`).then(r => r.json())
-        ]).then(([resDev, resRep]) => {
-            if(resDev.status === 'success') processDevices(resDev.data);
-            if(resRep.status === 'success') processRepairs(resRep.data);
+    // --- CORE LOGIC: FETCH & PROCESS ---
+    async function fetchData() {
+        document.getElementById('loading').classList.remove('d-none');
+        try {
+            const [resDev, resRep] = await Promise.all([
+                fetch(`${SCRIPT_URL}?action=read_devices`).then(r => r.json()),
+                fetch(`${SCRIPT_URL}?action=read_repairs`).then(r => r.json())
+            ]);
+
+            if(resDev.status === 'success') {
+                repairs = resRep.data || []; // Load repairs first to map status
+                processDevices(resDev.data);
+                renderApp();
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Lỗi kết nối dữ liệu. Vui lòng kiểm tra lại mạng hoặc link Script.");
+        } finally {
+            document.getElementById('loading').classList.add('d-none');
+        }
+    }
+
+    function processDevices(rawData) {
+        // Map CSV array to Object
+        // Data format: [Group, Name, Dept, Model, Serial, Expiry, Responsible]
+        devices = rawData.map((r, idx) => {
+            const expiryDate = r[5];
+            const name = r[1];
             
-            document.getElementById('loading-overlay').style.display = 'none';
-        }).catch(err => {
-            alert("Lỗi kết nối: " + err);
-            document.getElementById('loading-overlay').style.display = 'none';
+            // Logic: Check if device is currently under repair (Pending status in Repair sheet)
+            const activeRepair = repairs.find(rep => rep[3] === name && rep[5] === 'Pending');
+            
+            return {
+                id: idx,
+                group: r[0],
+                name: r[1],
+                dept: r[2],
+                model: r[3],
+                serial: r[4],
+                expiry: expiryDate,
+                resp: r[6],
+                repairStatus: activeRepair ? 'fixing' : 'active', // Logical Status
+                expiryStatus: calcExpiryStatus(expiryDate) // Time Status
+            };
         });
     }
 
-    function processDevices(data) {
-        // Map dữ liệu từ Array Sheet sang Object
-        globalDevices = data.map((r, i) => ({
-            id: `DEV${i}`,
-            cat: r[0], name: r[1], dept: r[2], model: r[3], serial: r[4], 
-            expiry: r[5], responsible: r[6],
-            statusObj: calcStatus(r[5])
-        }));
-        
-        populateFilters();
-        renderTable();
-        updateDashboard();
-    }
-
-    function processRepairs(data) {
-        globalRepairs = data;
-        const tb = document.getElementById('tbRepair');
-        tb.innerHTML = "";
-        data.forEach(r => {
-            // Sheet BaoTri: ID(0), Date(1), Type(2), Dev(3), Content(4), Status(5), Reporter(6)
-            let dateStr = new Date(r[1]).toLocaleDateString('vi-VN');
-            tb.innerHTML += `<tr><td>${dateStr}</td><td><span class="badge bg-light text-dark border">${r[2]}</span></td><td class="fw-bold">${r[3]}</td><td>${r[4]}</td><td><span class="badge bg-secondary">${r[5]}</span></td></tr>`;
-        });
-    }
-
-    function calcStatus(dateStr) {
+    function calcExpiryStatus(dateStr) {
         if(!dateStr) return { code: 'ok', days: 999 };
-        // Parse date format dd/MM/yyyy or MM/dd/yyyy depending on Sheet locale
-        // Here assuming standard string parsing
-        let exp = new Date(dateStr);
-        let now = new Date();
-        let diff = Math.ceil((exp - now) / (1000 * 3600 * 24));
+        const exp = new Date(dateStr);
+        const now = new Date();
+        const diff = Math.ceil((exp - now) / (1000 * 3600 * 24));
         
-        if (isNaN(diff)) return { code: 'ok', days: 999 }; // Fallback
-        
-        if (diff < 0) return { code: 'expired', days: diff, label: `Quá hạn ${Math.abs(diff)} ngày` };
-        if (diff <= 30) return { code: 'warning', days: diff, label: `Còn ${diff} ngày` };
-        return { code: 'ok', days: diff, label: `Còn ${diff} ngày` };
+        if (isNaN(diff)) return { code: 'ok', days: 999 };
+        if (diff < 0) return { code: 'expired', days: diff };
+        if (diff <= 30) return { code: 'warning', days: diff };
+        return { code: 'ok', days: diff };
     }
 
-    function renderTable() {
-        const tb = document.getElementById('tbInventory');
-        tb.innerHTML = "";
-        
-        const fCat = document.getElementById('fCat').value;
-        const fDept = document.getElementById('fDept').value;
-        const fStatus = document.getElementById('fStatus').value;
-        const fSearch = document.getElementById('fSearch').value.toLowerCase();
-        
-        const filtered = globalDevices.filter(d => {
-            let mCat = !fCat || d.cat === fCat;
-            let mDept = !fDept || d.dept === fDept;
-            let mStat = !fStatus || (fStatus === 'expired' ? (d.statusObj.code !== 'ok') : true);
-            let mSearch = !fSearch || d.name.toLowerCase().includes(fSearch) || d.model.toLowerCase().includes(fSearch);
-            return mCat && mDept && mStat && mSearch;
-        });
+    // --- RENDERING UI ---
+    function renderApp() {
+        renderDashboard();
+        renderInventory();
+        renderRepairsList();
+        renderCalendar();
+        populateDropdowns();
+    }
 
-        filtered.forEach(d => {
-            let badgeClass = d.statusObj.code === 'ok' ? 'bg-ok' : (d.statusObj.code === 'warning' ? 'bg-warning-custom' : 'bg-expired');
-            tb.innerHTML += `
+    function renderInventory() {
+        const tbody = document.getElementById('inventory-body');
+        tbody.innerHTML = '';
+        
+        devices.forEach(d => {
+            // Determine combined status
+            let statusBadge = '';
+            let rowClass = '';
+            
+            if (d.repairStatus === 'fixing') {
+                statusBadge = `<span class="badge-status st-fix">🛠️ Đang sửa chữa</span>`;
+                rowClass = 'table-warning';
+            } else if (d.expiryStatus.code === 'expired') {
+                statusBadge = `<span class="badge-status st-err">⛔ Hết hạn KĐ</span>`;
+            } else if (d.expiryStatus.code === 'warning') {
+                statusBadge = `<span class="badge-status st-warn">⚠️ Sắp hết hạn</span>`;
+            } else {
+                statusBadge = `<span class="badge-status st-ok">✅ Hoạt động tốt</span>`;
+            }
+
+            const tr = document.createElement('tr');
+            tr.className = rowClass;
+            tr.innerHTML = `
+                <td>
+                    <div class="fw-bold text-dark">${d.name}</div>
+                    <span class="badge bg-light text-secondary border">${d.group}</span>
+                </td>
+                <td>${d.dept}</td>
+                <td><small class="d-block text-muted">${d.model}</small><small class="text-secondary fw-bold">${d.serial}</small></td>
+                <td>${statusBadge}<br><small class="text-muted" style="font-size:0.7em">Hạn: ${d.expiry}</small></td>
+                <td><small>${d.resp}</small></td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-primary" onclick="showDeviceModal(${d.id})"><i class="bi bi-eye"></i></button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function renderRepairsList() {
+        const tbody = document.getElementById('repair-body');
+        tbody.innerHTML = '';
+        let pendingCount = 0;
+
+        repairs.forEach(r => {
+            // Sheet BaoTri: ID[0], Date[1], Type[2], Device[3], Content[4], Status[5], By[6]
+            const isPending = r[5] === 'Pending';
+            if(isPending) pendingCount++;
+            
+            const badge = isPending ? '<span class="badge bg-warning text-dark">Chờ xử lý</span>' : '<span class="badge bg-success">Đã xong</span>';
+            const dateStr = new Date(r[1]).toLocaleDateString('vi-VN');
+            
+            tbody.innerHTML += `
                 <tr>
-                    <td><span class="cat-badge">${d.cat}</span> <strong>${d.name}</strong><br><small class="text-muted">${d.model} - ${d.serial}</small></td>
-                    <td>${d.dept}</td>
-                    <td><span class="badge badge-status ${badgeClass}">${d.statusObj.label} (${d.expiry})</span></td>
-                    <td>${d.responsible}</td>
-                    <td><button class="btn btn-sm btn-outline-danger" onclick="reportIssue('${d.name} (${d.dept})')">Báo hỏng</button></td>
+                    <td>${dateStr}</td>
+                    <td class="fw-bold">${r[3]}</td>
+                    <td><span class="badge bg-light text-dark border me-1">${r[2]}</span> ${r[4]}</td>
+                    <td>${badge}</td>
+                    <td><small>${r[6]}</small></td>
                 </tr>
             `;
         });
+        
+        document.getElementById('ticket-count').innerText = `${repairs.length} phiếu`;
+        const badge = document.getElementById('badge-repair-count');
+        if(pendingCount > 0) {
+            badge.innerText = pendingCount;
+            badge.style.display = 'inline-block';
+        } else {
+            badge.style.display = 'none';
+        }
+        
+        // Update Dashboard Stat
+        document.getElementById('stat-repairing').innerText = pendingCount;
     }
 
-    function populateFilters() {
-        // Unique Categories & Depts
-        let cats = [...new Set(globalDevices.map(d => d.cat))].sort();
-        let depts = [...new Set(globalDevices.map(d => d.dept))].sort();
+    function renderDashboard() {
+        // Calculate Stats
+        const total = devices.length;
+        const expired = devices.filter(d => d.expiryStatus.code === 'expired').length;
+        // Ready = Total - Expired - Fixing
+        const fixing = devices.filter(d => d.repairStatus === 'fixing').length;
+        const ready = total - expired - fixing;
         
-        let sCat = document.getElementById('fCat');
-        let sDept = document.getElementById('fDept');
-        let sRpt = document.getElementById('rptDevice');
+        document.getElementById('stat-total').innerText = total;
+        document.getElementById('stat-expired').innerText = expired;
+        document.getElementById('stat-ready').innerText = ready; // Override previous logic
         
-        // Clear old options (keep first default)
-        while(sCat.options.length > 1) sCat.remove(1);
-        while(sDept.options.length > 1) sDept.remove(1);
-        sRpt.innerHTML = "";
+        // 1. Chart Dept (Bar)
+        const deptCounts = {};
+        devices.forEach(d => { deptCounts[d.dept] = (deptCounts[d.dept] || 0) + 1; });
         
-        cats.forEach(c => sCat.add(new Option(c, c)));
-        depts.forEach(d => sDept.add(new Option(d, d)));
-        globalDevices.forEach(d => sRpt.add(new Option(`${d.name} [${d.dept}]`, d.name)));
+        renderChart('chartDept', 'bar', Object.keys(deptCounts), Object.values(deptCounts), 'Thiết bị theo Khoa', '#0e7490');
+
+        // 2. Chart Status (Doughnut)
+        renderChart('chartStatus', 'doughnut', ['Sẵn sàng', 'Hết hạn', 'Đang sửa'], [ready, expired, fixing], 'Trạng thái', ['#166534', '#991b1b', '#eab308']);
     }
 
-    function reportIssue(devName) {
-        document.getElementById('rptDevice').value = devName.split(" [")[0]; // Simple set
-        // Switch tab
-        document.querySelector('button[data-bs-target="#pills-repair"]').click();
+    function renderChart(canvasId, type, labels, data, label, colors) {
+        const ctx = document.getElementById(canvasId).getContext('2d');
+        if(charts[canvasId]) charts[canvasId].destroy(); // Destroy old chart
+        
+        charts[canvasId] = new Chart(ctx, {
+            type: type,
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: label,
+                    data: data,
+                    backgroundColor: colors,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' } }
+            }
+        });
     }
 
-    function handleReportSubmit(e) {
+    function renderCalendar() {
+        const events = devices
+            .filter(d => d.expiryStatus.code !== 'ok')
+            .map(d => ({
+                title: `${d.name} (${d.dept})`,
+                start: formatDateForCal(d.expiry),
+                color: d.expiryStatus.code === 'expired' ? '#dc3545' : '#ffc107',
+                allDay: true
+            }));
+
+        const calendarEl = document.getElementById('calendar');
+        calendarEl.innerHTML = ''; // Reset
+        
+        calendarInstance = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            locale: 'vi',
+            height: 600,
+            headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,listMonth' },
+            events: events,
+            eventClick: function(info) {
+                alert('Chi tiết: ' + info.event.title);
+            }
+        });
+        // We render it but it might need resize when tab shown
+    }
+
+    // --- INTERACTION LOGIC ---
+    function switchTab(tabId) {
+        // 1. Update Menu
+        document.querySelectorAll('.sidebar-menu a').forEach(el => el.classList.remove('active'));
+        event.target.closest('a').classList.add('active');
+        
+        // 2. Show View
+        document.querySelectorAll('.view-section').forEach(el => el.classList.add('d-none'));
+        document.getElementById(`view-${tabId}`).classList.remove('d-none');
+        
+        // 3. Special handling for Calendar refresh
+        if(tabId === 'calendar' && calendarInstance) {
+            setTimeout(() => calendarInstance.updateSize(), 200);
+        }
+    }
+
+    function showDeviceModal(id) {
+        const d = devices.find(x => x.id === id);
+        if(!d) return;
+        
+        // Basic Info
+        document.getElementById('m-name').innerText = d.name;
+        document.getElementById('m-model').innerText = d.model;
+        document.getElementById('m-dept').innerText = d.dept;
+        document.getElementById('m-serial').innerText = d.serial;
+        document.getElementById('m-resp').innerText = d.resp;
+        document.getElementById('m-expiry').innerText = d.expiry;
+        
+        // Generate QR
+        new QRious({
+            element: document.getElementById('qr-canvas'),
+            value: `${d.name}|${d.model}|${d.serial}|${d.dept}`,
+            size: 150
+        });
+        
+        // Filter History for this specific device
+        const history = repairs.filter(r => r[3] === d.name);
+        const tl = document.getElementById('m-timeline');
+        tl.innerHTML = '';
+        
+        if(history.length === 0) {
+            tl.innerHTML = '<div class="text-muted text-center py-3">Chưa có lịch sử sửa chữa.</div>';
+        } else {
+            history.forEach(h => {
+                const date = new Date(h[1]).toLocaleDateString('vi-VN');
+                tl.innerHTML += `
+                    <div class="timeline-item">
+                        <small class="text-muted fw-bold">${date}</small>
+                        <h6 class="mb-1">${h[2]}</h6>
+                        <p class="mb-0 text-secondary small">${h[4]}</p>
+                        <span class="badge bg-light text-dark border mt-1">${h[5]}</span>
+                    </div>
+                `;
+            });
+        }
+        
+        // Store ID for quick report
+        document.getElementById('modalDevice').dataset.deviceId = d.id;
+        
+        new bootstrap.Modal(document.getElementById('modalDevice')).show();
+    }
+
+    function reportFromModal() {
+        // Close modal and switch to report tab
+        const id = document.getElementById('modalDevice').dataset.deviceId;
+        const d = devices.find(x => x.id == id);
+        
+        const modal = bootstrap.Modal.getInstance(document.getElementById('modalDevice'));
+        modal.hide();
+        
+        switchTab('maintenance');
+        // Pre-fill
+        const select = document.getElementById('rpt-device');
+        select.value = d.name;
+        document.getElementById('rpt-content').focus();
+    }
+
+    function populateDropdowns() {
+        const depts = [...new Set(devices.map(d => d.dept))].sort();
+        const selFilter = document.getElementById('filter-dept');
+        selFilter.innerHTML = '<option value="">Tất cả khoa</option>';
+        depts.forEach(d => selFilter.add(new Option(d, d)));
+
+        const selReport = document.getElementById('rpt-device');
+        selReport.innerHTML = '';
+        devices.forEach(d => selReport.add(new Option(`${d.name} [${d.dept}]`, d.name)));
+    }
+
+    function filterTable() {
+        const txt = document.getElementById('search-input').value.toLowerCase();
+        const dept = document.getElementById('filter-dept').value;
+        const rows = document.querySelectorAll('#inventory-body tr');
+        
+        let visibleCount = 0;
+        rows.forEach((row, idx) => {
+            const d = devices[idx]; // Assuming 1-1 mapping matches index
+            const matchTxt = d.name.toLowerCase().includes(txt) || d.model.toLowerCase().includes(txt) || d.serial.toLowerCase().includes(txt);
+            const matchDept = !dept || d.dept === dept;
+            
+            if (matchTxt && matchDept) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    async function handleReportSubmit(e) {
         e.preventDefault();
-        if(SCRIPT_URL.includes("THAY_LINK")) return alert("Bạn chưa cấu hình SCRIPT_URL!");
-        
         const btn = e.target.querySelector('button');
-        const oldText = btn.innerText;
+        const originalText = btn.innerText;
         btn.disabled = true; btn.innerText = "Đang gửi...";
         
         const payload = {
             action: 'add_repair',
-            device: document.getElementById('rptDevice').value,
-            type: document.getElementById('rptType').value,
-            content: document.getElementById('rptContent').value,
-            by: document.getElementById('rptBy').value
+            device: document.getElementById('rpt-device').value,
+            type: document.getElementById('rpt-type').value,
+            content: document.getElementById('rpt-content').value,
+            by: document.getElementById('rpt-by').value
         };
         
-        // POST to Google Script
-        fetch(SCRIPT_URL, {
-            method: 'POST',
-            body: JSON.stringify(payload)
-        })
-        .then(r => r.json())
-        .then(res => {
-            if(res.status === 'success') {
-                alert("✅ " + res.message);
-                e.target.reset();
-                fetchData(); // Reload data
-            } else {
-                alert("⛔ " + res.message);
-            }
-        })
-        .finally(() => {
-            btn.disabled = false; btn.innerText = oldText;
-        });
-    }
-
-    function updateDashboard() {
-        document.getElementById('c-total').innerText = globalDevices.length;
-        document.getElementById('c-exp').innerText = globalDevices.filter(d => d.statusObj.code === 'expired').length;
-        document.getElementById('c-warn').innerText = globalDevices.filter(d => d.statusObj.code === 'warning').length;
-        document.getElementById('c-ok').innerText = globalDevices.filter(d => d.statusObj.code === 'ok').length;
-        
-        renderAllCharts();
-    }
-
-    function renderAllCharts() {
-        if(!globalDevices.length) return;
-        
-        // 1. Calendar
-        let events = globalDevices
-            .filter(d => d.statusObj.code !== 'ok')
-            .map(d => ({
-                title: `${d.name} (${d.dept})`,
-                start: formatDateForCal(d.expiry),
-                color: d.statusObj.code === 'expired' ? '#dc3545' : '#ffc107'
-            }));
+        try {
+            const res = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            }).then(r => r.json());
             
-        let calEl = document.getElementById('calendar');
-        calEl.innerHTML = "";
-        let calendar = new FullCalendar.Calendar(calEl, {
-            initialView: 'dayGridMonth',
-            locale: 'vi', height: 350,
-            events: events,
-            headerToolbar: { left: 'prev,next', center: 'title', right: 'listMonth' }
-        });
-        calendar.render();
-        
-        // 2. Charts
-        let dataCat = [['Nhóm', 'SL']];
-        let cats = {}; globalDevices.forEach(d => cats[d.cat] = (cats[d.cat]||0)+1);
-        for(let k in cats) dataCat.push([k, cats[k]]);
-        
-        new google.visualization.PieChart(document.getElementById('chart_cat')).draw(
-            google.visualization.arrayToDataTable(dataCat), {title: 'Phân bố theo nhóm', pieHole: 0.4, chartArea:{width:'90%', height:'80%'}}
-        );
-        
-        let dataStat = [['Trạng thái', 'SL'], ['Hết hạn', parseInt(document.getElementById('c-exp').innerText)], ['Cảnh báo', parseInt(document.getElementById('c-warn').innerText)], ['OK', parseInt(document.getElementById('c-ok').innerText)]];
-         new google.visualization.PieChart(document.getElementById('chart_status')).draw(
-            google.visualization.arrayToDataTable(dataStat), {title: 'Tình trạng kiểm định', colors:['#dc3545','#ffc107','#198754'], pieHole: 0.4, chartArea:{width:'90%', height:'80%'}}
-        );
+            if(res.status === 'success') {
+                alert("✅ Gửi yêu cầu thành công!");
+                e.target.reset();
+                fetchData(); // Refresh to update ticket list and device status
+            } else {
+                alert("⛔ Lỗi: " + res.message);
+            }
+        } catch(err) {
+            alert("Lỗi mạng!");
+        } finally {
+            btn.disabled = false; btn.innerText = originalText;
+        }
     }
-    
+
     function formatDateForCal(str) {
-        // Convert dd/MM/yyyy to yyyy-MM-dd for FullCalendar
         if(!str) return new Date();
-        let parts = str.split('/');
-        if(parts.length === 3) return `${parts[2]}-${parts[0]}-${parts[1]}`; // Assuming sheet is MM/dd/yyyy. If dd/MM/yyyy swap 0 and 1
-        return new Date(str);
+        const p = str.split('/');
+        // Assuming Input Format MM/dd/yyyy based on previous prompt context
+        // If your sheet is dd/MM/yyyy, change to `${p[2]}-${p[1]}-${p[0]}`
+        return p.length === 3 ? `${p[2]}-${p[0]}-${p[1]}` : new Date();
     }
 </script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

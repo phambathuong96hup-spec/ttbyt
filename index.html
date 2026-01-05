@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý Trang Thiết Bị Y Tế</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    
+    <style>
+        :root { --primary-color: #0d6efd; --bg-color: #f4f6f9; }
+        body { background-color: var(--bg-color); font-family: 'Segoe UI', sans-serif; font-size: 14px; }
+        .nav-pills .nav-link.active { background-color: var(--primary-color); color: white; box-shadow: 0 4px 6px rgba(13, 110, 253, 0.3); }
+        .nav-pills .nav-link { background: white; margin: 0 5px; color: #555; font-weight: 600; }
+        .card-custom { border: none; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border-radius: 12px; background: white; margin-bottom: 20px; }
+        .badge-status { font-size: 0.75rem; padding: 4px 8px; border-radius: 6px; }
+        .bg-ok { background-color: #198754; color: white; }
+        .bg-warning-custom { background-color: #ffc107; color: #333; }
+        .bg-expired { background-color: #dc3545; color: white; }
+        .table-responsive { max-height: 70vh; overflow-y: auto; }
+        th { position: sticky; top: 0; background: white; z-index: 10; }
+        .cat-badge { font-size: 0.7rem; font-weight: bold; padding: 2px 6px; border-radius: 4px; background: #e9ecef; color: #495057; display: inline-block; margin-bottom: 4px; }
+        /* Loading Overlay */
+        #loading-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(255,255,255,0.8); z-index: 9999; display: flex; justify-content: center; align-items: center; flex-direction: column; }
+    </style>
+</head>
+<body>
+
+<div id="loading-overlay">
+    <div class="spinner-border text-primary" role="status"></div>
+    <div class="mt-2 fw-bold text-primary">Đang tải dữ liệu...</div>
+</div>
+
+<div class="container-fluid px-3 py-3" style="max-width: 1400px; margin: 0 auto;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex align-items-center">
+            <div class="bg-primary text-white p-2 rounded-3 me-3"><i class="bi bi-hospital fs-4"></i></div>
+            <div>
+                <h5 class="fw-bold m-0 text-primary">QUẢN LÝ THIẾT BỊ & KIỂM ĐỊNH</h5>
+                <small class="text-muted">Hệ thống đồng bộ Google Sheet</small>
+            </div>
+        </div>
+        <button class="btn btn-outline-primary btn-sm" onclick="fetchData()">🔄 Làm mới</button>
+    </div>
+
+    <ul class="nav nav-pills nav-fill mb-3" id="pills-tab" role="tablist">
+        <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#pills-dashboard" onclick="renderAllCharts()">📊 Tổng Quan</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#pills-list">📦 Danh Sách Thiết Bị</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#pills-repair">🛠️ Báo Hỏng & Sửa Chữa</button></li>
+    </ul>
+
+    <div class="tab-content">
+        <!-- TAB 1: DASHBOARD -->
+        <div class="tab-pane fade show active" id="pills-dashboard">
+            <div class="row g-3 mb-4">
+                <div class="col-md-3"><div class="card card-custom p-3 border-start border-4 border-primary"><h3><span id="c-total">0</span></h3><small>TỔNG THIẾT BỊ</small></div></div>
+                <div class="col-md-3"><div class="card card-custom p-3 border-start border-4 border-danger"><h3><span id="c-exp" class="text-danger">0</span></h3><small>HẾT HẠN KĐ</small></div></div>
+                <div class="col-md-3"><div class="card card-custom p-3 border-start border-4 border-warning"><h3><span id="c-warn" class="text-warning">0</span></h3><small>SẮP HẾT HẠN</small></div></div>
+                <div class="col-md-3"><div class="card card-custom p-3 border-start border-4 border-success"><h3><span id="c-ok" class="text-success">0</span></h3><small>ĐỦ ĐIỀU KIỆN</small></div></div>
+            </div>
+            <div class="row g-4">
+                <div class="col-lg-8"><div class="card card-custom p-3"><h6 class="fw-bold">📅 Lịch Kiểm Định & Bảo Dưỡng</h6><div id="calendar"></div></div></div>
+                <div class="col-lg-4">
+                    <div class="card card-custom p-3 mb-3"><div id="chart_cat" style="height:250px;"></div></div>
+                    <div class="card card-custom p-3"><div id="chart_status" style="height:250px;"></div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: INVENTORY -->
+        <div class="tab-pane fade" id="pills-list">
+            <div class="card card-custom p-3">
+                <div class="row g-2 mb-3">
+                    <div class="col-md-3"><select id="fCat" class="form-select form-select-sm" onchange="renderTable()"><option value="">Tất cả nhóm</option></select></div>
+                    <div class="col-md-3"><select id="fDept" class="form-select form-select-sm" onchange="renderTable()"><option value="">Tất cả khoa</option></select></div>
+                    <div class="col-md-3"><select id="fStatus" class="form-select form-select-sm" onchange="renderTable()"><option value="">Tất cả trạng thái</option><option value="expired">Cảnh báo & Hết hạn</option></select></div>
+                    <div class="col-md-3"><input type="text" id="fSearch" class="form-control form-control-sm" placeholder="Tìm kiếm..." onkeyup="renderTable()"></div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle table-sm">
+                        <thead class="table-light"><tr><th>Tên Thiết Bị / Model</th><th>Khoa</th><th>Hạn KĐ</th><th>Người PT</th><th>Tác vụ</th></tr></thead>
+                        <tbody id="tbInventory"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: REPAIR -->
+        <div class="tab-pane fade" id="pills-repair">
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="card card-custom p-4 bg-light border-danger border-top border-4">
+                        <h5 class="text-danger fw-bold mb-3">Gửi Yêu Cầu Mới</h5>
+                        <form id="formReport">
+                            <div class="mb-3"><label class="small fw-bold">Thiết bị</label><select id="rptDevice" class="form-select" required></select></div>
+                            <div class="mb-3"><label class="small fw-bold">Loại</label><select id="rptType" class="form-select"><option>Sửa chữa (Hỏng)</option><option>Kiểm định lại</option><option>Bảo dưỡng định kỳ</option></select></div>
+                            <div class="mb-3"><label class="small fw-bold">Mô tả</label><textarea id="rptContent" class="form-control" required></textarea></div>
+                            <div class="mb-3"><label class="small fw-bold">Người báo</label><input id="rptBy" class="form-control" required></div>
+                            <button type="submit" class="btn btn-danger w-100 fw-bold">GỬI YÊU CẦU</button>
+                        </form>
+                    </div>
+                </div>
+                <div class="col-md-8">
+                    <div class="card card-custom p-4">
+                        <h5 class="fw-bold">Lịch Sử Yêu Cầu</h5>
+                        <div class="table-responsive">
+                            <table class="table table-striped table-sm"><thead class="table-primary"><tr><th>Ngày</th><th>Loại</th><th>Thiết bị</th><th>Nội dung</th><th>Trạng thái</th></tr></thead><tbody id="tbRepair"></tbody></table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // --- CẤU HÌNH LIÊN KẾT ---
+    // 1. Deploy Google Script -> Copy URL -> Dán vào dưới đây
+    const SCRIPT_URL = "https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLjtEZAxkm-HfCxskB9kqT_UYdJwNND5VDZxjedK8LhswVXzClHQvyaNrKo_JgwsgfCqQd_tRtX865IIoSPk-iO05h_Wuk1nMGFqoJN4ir_wdLvy52Cdn_gRy81_He4RNRztkMfJvZ3mNaiCkBS8OY2Spv78BX2mXDK_s6n2Xdgee9ILXGJ_3z7pMIqxGscSa14xou2CY7CM6a85zY6srhYzlcXojvrA09TYDmF-Ey4XmXxTTasTN37SkdTfJjq7rofWw0Hnh_u2G2DLJ4yeX2Z1ly0tKQ&lib=MkicwER8gXWbRXu_mQhaEU_w-lhh3mvzt";
+
+    let globalDevices = [];
+    let globalRepairs = [];
+
+    document.addEventListener('DOMContentLoaded', () => {
+        google.charts.load('current', {'packages':['corechart']});
+        fetchData();
+        
+        document.getElementById('formReport').addEventListener('submit', handleReportSubmit);
+    });
+
+    function fetchData() {
+        document.getElementById('loading-overlay').style.display = 'flex';
+        
+        // Gọi song song 2 API: Lấy thiết bị và Lấy lịch sử sửa chữa
+        Promise.all([
+            fetch(`${SCRIPT_URL}?action=read_devices`).then(r => r.json()),
+            fetch(`${SCRIPT_URL}?action=read_repairs`).then(r => r.json())
+        ]).then(([resDev, resRep]) => {
+            if(resDev.status === 'success') processDevices(resDev.data);
+            if(resRep.status === 'success') processRepairs(resRep.data);
+            
+            document.getElementById('loading-overlay').style.display = 'none';
+        }).catch(err => {
+            alert("Lỗi kết nối: " + err);
+            document.getElementById('loading-overlay').style.display = 'none';
+        });
+    }
+
+    function processDevices(data) {
+        // Map dữ liệu từ Array Sheet sang Object
+        globalDevices = data.map((r, i) => ({
+            id: `DEV${i}`,
+            cat: r[0], name: r[1], dept: r[2], model: r[3], serial: r[4], 
+            expiry: r[5], responsible: r[6],
+            statusObj: calcStatus(r[5])
+        }));
+        
+        populateFilters();
+        renderTable();
+        updateDashboard();
+    }
+
+    function processRepairs(data) {
+        globalRepairs = data;
+        const tb = document.getElementById('tbRepair');
+        tb.innerHTML = "";
+        data.forEach(r => {
+            // Sheet BaoTri: ID(0), Date(1), Type(2), Dev(3), Content(4), Status(5), Reporter(6)
+            let dateStr = new Date(r[1]).toLocaleDateString('vi-VN');
+            tb.innerHTML += `<tr><td>${dateStr}</td><td><span class="badge bg-light text-dark border">${r[2]}</span></td><td class="fw-bold">${r[3]}</td><td>${r[4]}</td><td><span class="badge bg-secondary">${r[5]}</span></td></tr>`;
+        });
+    }
+
+    function calcStatus(dateStr) {
+        if(!dateStr) return { code: 'ok', days: 999 };
+        // Parse date format dd/MM/yyyy or MM/dd/yyyy depending on Sheet locale
+        // Here assuming standard string parsing
+        let exp = new Date(dateStr);
+        let now = new Date();
+        let diff = Math.ceil((exp - now) / (1000 * 3600 * 24));
+        
+        if (isNaN(diff)) return { code: 'ok', days: 999 }; // Fallback
+        
+        if (diff < 0) return { code: 'expired', days: diff, label: `Quá hạn ${Math.abs(diff)} ngày` };
+        if (diff <= 30) return { code: 'warning', days: diff, label: `Còn ${diff} ngày` };
+        return { code: 'ok', days: diff, label: `Còn ${diff} ngày` };
+    }
+
+    function renderTable() {
+        const tb = document.getElementById('tbInventory');
+        tb.innerHTML = "";
+        
+        const fCat = document.getElementById('fCat').value;
+        const fDept = document.getElementById('fDept').value;
+        const fStatus = document.getElementById('fStatus').value;
+        const fSearch = document.getElementById('fSearch').value.toLowerCase();
+        
+        const filtered = globalDevices.filter(d => {
+            let mCat = !fCat || d.cat === fCat;
+            let mDept = !fDept || d.dept === fDept;
+            let mStat = !fStatus || (fStatus === 'expired' ? (d.statusObj.code !== 'ok') : true);
+            let mSearch = !fSearch || d.name.toLowerCase().includes(fSearch) || d.model.toLowerCase().includes(fSearch);
+            return mCat && mDept && mStat && mSearch;
+        });
+
+        filtered.forEach(d => {
+            let badgeClass = d.statusObj.code === 'ok' ? 'bg-ok' : (d.statusObj.code === 'warning' ? 'bg-warning-custom' : 'bg-expired');
+            tb.innerHTML += `
+                <tr>
+                    <td><span class="cat-badge">${d.cat}</span> <strong>${d.name}</strong><br><small class="text-muted">${d.model} - ${d.serial}</small></td>
+                    <td>${d.dept}</td>
+                    <td><span class="badge badge-status ${badgeClass}">${d.statusObj.label} (${d.expiry})</span></td>
+                    <td>${d.responsible}</td>
+                    <td><button class="btn btn-sm btn-outline-danger" onclick="reportIssue('${d.name} (${d.dept})')">Báo hỏng</button></td>
+                </tr>
+            `;
+        });
+    }
+
+    function populateFilters() {
+        // Unique Categories & Depts
+        let cats = [...new Set(globalDevices.map(d => d.cat))].sort();
+        let depts = [...new Set(globalDevices.map(d => d.dept))].sort();
+        
+        let sCat = document.getElementById('fCat');
+        let sDept = document.getElementById('fDept');
+        let sRpt = document.getElementById('rptDevice');
+        
+        // Clear old options (keep first default)
+        while(sCat.options.length > 1) sCat.remove(1);
+        while(sDept.options.length > 1) sDept.remove(1);
+        sRpt.innerHTML = "";
+        
+        cats.forEach(c => sCat.add(new Option(c, c)));
+        depts.forEach(d => sDept.add(new Option(d, d)));
+        globalDevices.forEach(d => sRpt.add(new Option(`${d.name} [${d.dept}]`, d.name)));
+    }
+
+    function reportIssue(devName) {
+        document.getElementById('rptDevice').value = devName.split(" [")[0]; // Simple set
+        // Switch tab
+        document.querySelector('button[data-bs-target="#pills-repair"]').click();
+    }
+
+    function handleReportSubmit(e) {
+        e.preventDefault();
+        if(SCRIPT_URL.includes("THAY_LINK")) return alert("Bạn chưa cấu hình SCRIPT_URL!");
+        
+        const btn = e.target.querySelector('button');
+        const oldText = btn.innerText;
+        btn.disabled = true; btn.innerText = "Đang gửi...";
+        
+        const payload = {
+            action: 'add_repair',
+            device: document.getElementById('rptDevice').value,
+            type: document.getElementById('rptType').value,
+            content: document.getElementById('rptContent').value,
+            by: document.getElementById('rptBy').value
+        };
+        
+        // POST to Google Script
+        fetch(SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(res => {
+            if(res.status === 'success') {
+                alert("✅ " + res.message);
+                e.target.reset();
+                fetchData(); // Reload data
+            } else {
+                alert("⛔ " + res.message);
+            }
+        })
+        .finally(() => {
+            btn.disabled = false; btn.innerText = oldText;
+        });
+    }
+
+    function updateDashboard() {
+        document.getElementById('c-total').innerText = globalDevices.length;
+        document.getElementById('c-exp').innerText = globalDevices.filter(d => d.statusObj.code === 'expired').length;
+        document.getElementById('c-warn').innerText = globalDevices.filter(d => d.statusObj.code === 'warning').length;
+        document.getElementById('c-ok').innerText = globalDevices.filter(d => d.statusObj.code === 'ok').length;
+        
+        renderAllCharts();
+    }
+
+    function renderAllCharts() {
+        if(!globalDevices.length) return;
+        
+        // 1. Calendar
+        let events = globalDevices
+            .filter(d => d.statusObj.code !== 'ok')
+            .map(d => ({
+                title: `${d.name} (${d.dept})`,
+                start: formatDateForCal(d.expiry),
+                color: d.statusObj.code === 'expired' ? '#dc3545' : '#ffc107'
+            }));
+            
+        let calEl = document.getElementById('calendar');
+        calEl.innerHTML = "";
+        let calendar = new FullCalendar.Calendar(calEl, {
+            initialView: 'dayGridMonth',
+            locale: 'vi', height: 350,
+            events: events,
+            headerToolbar: { left: 'prev,next', center: 'title', right: 'listMonth' }
+        });
+        calendar.render();
+        
+        // 2. Charts
+        let dataCat = [['Nhóm', 'SL']];
+        let cats = {}; globalDevices.forEach(d => cats[d.cat] = (cats[d.cat]||0)+1);
+        for(let k in cats) dataCat.push([k, cats[k]]);
+        
+        new google.visualization.PieChart(document.getElementById('chart_cat')).draw(
+            google.visualization.arrayToDataTable(dataCat), {title: 'Phân bố theo nhóm', pieHole: 0.4, chartArea:{width:'90%', height:'80%'}}
+        );
+        
+        let dataStat = [['Trạng thái', 'SL'], ['Hết hạn', parseInt(document.getElementById('c-exp').innerText)], ['Cảnh báo', parseInt(document.getElementById('c-warn').innerText)], ['OK', parseInt(document.getElementById('c-ok').innerText)]];
+         new google.visualization.PieChart(document.getElementById('chart_status')).draw(
+            google.visualization.arrayToDataTable(dataStat), {title: 'Tình trạng kiểm định', colors:['#dc3545','#ffc107','#198754'], pieHole: 0.4, chartArea:{width:'90%', height:'80%'}}
+        );
+    }
+    
+    function formatDateForCal(str) {
+        // Convert dd/MM/yyyy to yyyy-MM-dd for FullCalendar
+        if(!str) return new Date();
+        let parts = str.split('/');
+        if(parts.length === 3) return `${parts[2]}-${parts[0]}-${parts[1]}`; // Assuming sheet is MM/dd/yyyy. If dd/MM/yyyy swap 0 and 1
+        return new Date(str);
+    }
+</script>
+</body>
+</html>
